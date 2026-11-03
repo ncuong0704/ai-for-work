@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +14,21 @@ import { createToken } from "@/lib/tokens";
 import { rateLimit, requestIp } from "@/lib/rate-limit";
 
 let dummyHash: Promise<string> | undefined;
+
+// Host chỉ chạy migrate, không chạy seed: tạo admin đầu tiên từ ADMIN_EMAIL/ADMIN_PASSWORD khi DB chưa có admin nào.
+async function bootstrapAdmin(email: string, password: string) {
+  const envEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const envPassword = process.env.ADMIN_PASSWORD;
+  if (!envEmail || !envPassword || envPassword.length < 12) return null;
+  const a = Buffer.from(password);
+  const b = Buffer.from(envPassword);
+  if (email !== envEmail || a.length !== b.length || !timingSafeEqual(a, b))
+    return null;
+  if (await prisma.admin.count()) return null;
+  return prisma.admin.create({
+    data: { id: "admin", email, passwordHash: await hashPassword(password) },
+  });
+}
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
@@ -25,9 +41,10 @@ export async function POST(request: Request) {
       }),
       4096,
     );
-    const admin = await prisma.admin.findUnique({
-      where: { email: input.email.toLowerCase().trim() },
-    });
+    const email = input.email.toLowerCase().trim();
+    const admin =
+      (await prisma.admin.findUnique({ where: { email } })) ??
+      (await bootstrapAdmin(email, input.password));
     const hash =
       admin?.passwordHash ||
       (await (dummyHash ??= hashPassword("dummy-password-for-timing")));

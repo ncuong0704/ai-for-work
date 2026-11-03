@@ -40,11 +40,18 @@ export async function readJson<T>(
   }
 }
 
+// So sánh theo host: proxy HTTPS chuyển tiếp bằng HTTP nên scheme của request.url không khớp Origin.
 export function assertSameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const expected =
-    process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-  if (!origin || origin !== new URL(expected).origin)
+  const origin = request.headers.get("origin")?.split("//")[1];
+  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0];
+  const allowed = [
+    forwarded?.trim(),
+    request.headers.get("host"),
+    new URL(request.url).host,
+    process.env.NEXT_PUBLIC_APP_URL &&
+      new URL(process.env.NEXT_PUBLIC_APP_URL).host,
+  ];
+  if (!origin || !allowed.includes(origin))
     throw new HttpError(403, "Yêu cầu không cùng nguồn.");
 }
 

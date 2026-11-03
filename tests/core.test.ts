@@ -221,3 +221,23 @@ describe("grounded answers", () => {
     expect(html.match(/href="[^"]*"/g)).toEqual(['href="/posts/bai-that"']);
   });
 });
+
+describe("same-origin check behind proxy", async () => {
+  const { assertSameOrigin } = await import("@/lib/http");
+  const req = (origin: string | null, headers: Record<string, string> = {}) =>
+    new Request("http://0.0.0.0:3000/api/admin/login", {
+      method: "POST",
+      headers: { ...(origin ? { origin } : {}), ...headers },
+    });
+  it("accepts https origin matching forwarded host", () =>
+    expect(() =>
+      assertSameOrigin(
+        req("https://site.vn", { host: "0.0.0.0:3000", "x-forwarded-host": "site.vn" }),
+      ),
+    ).not.toThrow());
+  it("rejects foreign, missing and null origins", () => {
+    expect(() => assertSameOrigin(req("https://evil.com", { host: "site.vn" }))).toThrow();
+    expect(() => assertSameOrigin(req(null, { host: "site.vn" }))).toThrow();
+    expect(() => assertSameOrigin(req("null", { host: "site.vn" }))).toThrow();
+  });
+});
