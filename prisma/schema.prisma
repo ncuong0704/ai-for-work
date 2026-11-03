@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Topic {
+  id         String    @id @default(cuid())
+  title      String
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Post {
+  id            String      @id @default(cuid())
+  slug          String      @unique
+  title         String
+  contentJson   Json
+  contentMd     String?
+  summary       String?
+  category      String?
+  status        PostStatus  @default(DRAFT)
+  sourceUrls    Json?
+  tags          String[]
+  coverImage    String?
+  generationKey String?     @unique
+  publishedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  chunks        PostChunk[]
+
+  @@index([status, publishedAt])
+  @@index([category])
+}
+
+model PostChunk {
+  id         String @id @default(cuid())
+  postId     String
+  content    String
+  chunkIndex Int
+  post       Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@unique([postId, chunkIndex])
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  busyUntil DateTime?
+  messages  ChatMessage[]
+
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  role      String
+  content   String
+  sources   Json?
+  createdAt DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model RateLimit {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
