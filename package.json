@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "next dev --hostname ::",
     "build": "prisma generate && next build",
-    "start": "node scripts/start.mjs",
-    "start:deploy": "npm run db:migrate && npm run start",
+    "start": "npm run db:migrate && node scripts/start.mjs",
+    "start:deploy": "npm run start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "tsx tests/integration.ts",
